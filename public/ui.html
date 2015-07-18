@@ -1,0 +1,121 @@
+<html>
+<head>
+    <title>Simple Map</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+        html, body, #map-canvas {
+            height: 90%;
+            margin: 0;
+            padding: 0;
+        }
+
+    </style>
+    <script src="//code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script src="//code.jquery.com/jquery-migrate-1.2.1.min.js"></script>
+    <script src="localstorage.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?v=3.exp"></script>
+
+    <script>
+        function initialize() {
+            $.ajax({
+                url: "/endpoint",
+            }).done(function (url) {
+                var map;
+                var me;
+                var ball;
+                var storage = jQuery.localStorage;
+                setInterval(function () {
+                    $.ajax({
+                        url: url,
+                    }).done(function (data, textStatus, jqXHR) {
+                        var ballLatlng = null;
+
+                        if (jqXHR.status == 204) {
+                            jQuery('#status').text("Nobody has the ball! Grab it!");
+                        }
+                        else if (jqXHR.status == 200 && !storage.isSet('ball-key')) {
+                            ballLatlng = new google.maps.LatLng(data['lat'], data['lon']);
+                            jQuery('#status').text("Get closer!");
+                        }
+
+                        navigator.geolocation.getCurrentPosition(function (position) {
+                            var myLatlng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+                            updateMap(myLatlng, ballLatlng);
+                        });
+                    });
+
+                }, 1000);
+
+                var updateMap = function (myLocation, ballsLocation) {
+                    if (!map) {
+                        var mapOptions = {
+                            zoom: 10,
+                            center: myLocation
+                        };
+                        map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+                    }
+
+                    if (me) {
+                        me.setMap(null);
+                    }
+
+                    me = new google.maps.Marker({
+                        position: myLocation,
+                        map: map,
+                        title: 'Your location'
+                    });
+
+                    if (ballsLocation) {
+                        if (ball) {
+                            ball.setMap(null);
+                        }
+
+                        ball = new google.maps.Marker({
+                            position: ballsLocation,
+                            map: map,
+                            title: 'Ball'
+                        });
+                    }
+                };
+
+                jQuery("#grab").click(function () {
+                    navigator.geolocation.getCurrentPosition(function (position) {
+                        var ball = {
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude
+                        };
+
+                        if (storage.isSet('ball-key')) {
+                            ball['key'] = storage.get('ball-key');
+                        }
+
+                        $.ajax({
+                            url: url,
+                            method: "POST",
+                            data: JSON.stringify(ball),
+                            contentType: "application/json; charset=utf-8",
+                            dataType: "json"
+                        }).done(function (data) {
+                            storage.set('ball-key', data['key']);
+                            jQuery('#status').text("You have the ball");
+                        })
+                                .fail(function () {
+                                    jQuery('#status').text("Could not move the ball! You're too far away from the ball holder");
+                                });
+                    })
+                })
+
+            });
+        }
+
+        google.maps.event.addDomListener(window, 'load', initialize);
+
+    </script>
+</head>
+<body>
+<div id="map-canvas"></div>
+<button id="grab">Move Ball</button>
+<div id="status">???</div>
+</body>
+</html>

@@ -1,0 +1,6 @@
+ballui:
+  build: .
+  environment:
+    BALLAPI_ENDPOINT: http://192.168.59.103:3000
+  ports:
+   - "3001:3001"
